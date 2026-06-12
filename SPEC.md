@@ -13,14 +13,22 @@ state lives in CLAUDE.md.
 ## Scope
 
 **v1 (this spec):**
-- One mechanic: gridshot
-- Solo play, single shared leaderboard
+- One mode: gridshot — playable at three difficulty tiers (easy / normal / hard)
+- A difficulty selector before play (players pick a tier; they do **not** free-tune
+  duration/size/count — those are resolved from the tier)
+- Per-`(mode, difficulty)` leaderboard, which doubles as the interim main-menu board
+- Solo play, shared leaderboard
 - Typed nickname identity (no accounts)
 - Canvas rendering, mouse input
 
 **Explicitly out of scope for v1 (designed for, not built):**
 - User accounts / auth — schema reserves a nullable `user_id`
-- Additional modes (flick, tracking) — schema carries a `mode` field
+- Additional modes (flick, tracking) — schema carries a `mode` field and a shared mode
+  registry is the seam for adding them
+- **Full Run** flow + main-menu Total-score board — the `full_runs` table and `full_run_id`
+  exist in the schema, but with only one mode a Full Run is degenerate, so the flow ships
+  when the second mode lands
+- Per-name leaderboard cap (top-N max K per nickname, a window query)
 - Real-time / synchronous play
 - Server-side score validation beyond basic type/range checks (scores are forgeable; see Known Limitations)
 - Touch / mobile input — mouse only
@@ -54,6 +62,22 @@ Each decision records the rejected alternative and why, so the reasoning survive
    UI grows.)
 9. **node-postgres (`pg`) with hand-written parameterized SQL, not an ORM.** Maximizes SQL
    learning and teaches injection-safe queries. Prisma is a reasonable later upgrade.
+10. **Difficulty is a named bundle of tuning params, per mode.** A `(mode, difficulty)` pair
+    deterministically resolves to `(duration, target_size, target_count, …)` from shared
+    config; difficulty (easy/normal/hard) is a global axis each mode defines its own numbers
+    for. Rejected free-form sliders for duration/size/count: they fragment the board into
+    near-empty buckets and multiply the test surface for no friends-scale benefit.
+11. **Scores store the difficulty *and* the resolved params (denormalized).** Comparability
+    keys on `(mode, difficulty)`; the resolved params are stored alongside so re-tuning a
+    tier later does not silently rewrite the meaning of old scores. Rejected storing only the
+    difficulty enum (history-unsafe; the two synced machines could drift on config).
+12. **A round is a round.** Every completed round is one `scores` row on its `(mode,
+    difficulty)` board, whether played solo or inside a Full Run; Full Run rounds merely
+    carry a non-null `full_run_id`. Rejected segregating Full Run rounds: it splits "a score"
+    into two populations and needs an exclusion flag everywhere.
+13. **Full Run total = raw sum of per-mode scores.** No cross-mode normalization. Rejected
+    normalized points (need per-mode calibration that can't exist before the modes do) and
+    rank points (a player's total shifts as *others* post). See `docs/adr/0001`.
 
 ## Tech Stack
 
@@ -89,27 +113,42 @@ aim-trainer/
 
 ## Data Model
 
-Single `scores` table. Every field that affects difficulty is stored so the leaderboard
-can group correctly.
+Two tables. `scores` holds one row per completed round; `full_runs` holds the aggregate for
+a Full Run. Comparability keys on `(mode, difficulty)`; the resolved tuning params are stored
+on each row so historical scores stay interpretable even if a tier is re-tuned later.
 
 ```sql
+CREATE TABLE full_runs (
+  id           BIGSERIAL PRIMARY KEY,
+  difficulty   TEXT        NOT NULL,               -- 'easy' | 'normal' | 'hard'
+  display_name TEXT        NOT NULL,
+  user_id      TEXT        NULL,                   -- reserved for accounts; always NULL in v1
+  total_score  INTEGER     NOT NULL,               -- raw sum of member rounds' scores (ADR 0001)
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE scores (
   id               BIGSERIAL PRIMARY KEY,
   mode             TEXT        NOT NULL,            -- 'gridshot' for v1
+  difficulty       TEXT        NOT NULL,            -- 'easy' | 'normal' | 'hard'
   display_name     TEXT        NOT NULL,
   user_id          TEXT        NULL,                -- reserved for accounts; always NULL in v1
+  full_run_id      BIGINT      NULL REFERENCES full_runs(id),  -- NULL = solo round
   score            INTEGER     NOT NULL,            -- = hits, the ranked value
   hits             INTEGER     NOT NULL,
   misses           INTEGER     NOT NULL,
   accuracy         REAL        NOT NULL,            -- 0.0–1.0, derived: hits / (hits + misses)
-  duration_seconds INTEGER     NOT NULL,            -- difficulty setting
-  target_size      INTEGER     NOT NULL,            -- target radius in logical px; difficulty setting
-  target_count     INTEGER     NOT NULL,            -- simultaneous targets; difficulty setting
+  duration_seconds INTEGER     NOT NULL,            -- resolved from (mode, difficulty); stored for history
+  target_size      INTEGER     NOT NULL,            -- resolved; target radius in logical px
+  target_count     INTEGER     NOT NULL,            -- resolved; simultaneous targets
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_scores_leaderboard
-  ON scores (mode, duration_seconds, target_size, target_count, score DESC, created_at ASC);
+  ON scores (mode, difficulty, score DESC, created_at ASC);
+
+CREATE INDEX idx_full_runs_board
+  ON full_runs (difficulty, total_score DESC, created_at ASC);
 ```
 
 ## API Contract
@@ -125,25 +164,33 @@ Body:
 ```json
 {
   "mode": "gridshot",
+  "difficulty": "normal",
   "display_name": "string (1–24 chars)",
-  "score": 0,
   "hits": 0,
   "misses": 0,
-  "accuracy": 0.0,
-  "duration_seconds": 60,
-  "target_size": 30,
-  "target_count": 3
+  "full_run_id": null
 }
 ```
-Validation: `score`/`hits`/`misses` non-negative integers; `accuracy` 0–1; `display_name`
-trimmed, 1–24 chars; `mode` in allowed set. Reject with `400` + message on failure.
-→ `201 { id, created_at }`. `user_id` is set to null server-side.
+The client sends only the inputs. The server is the authority on everything derived:
+- Validates `(mode, difficulty)` is in the allowed set; `hits`/`misses` non-negative
+  integers; `display_name` trimmed, 1–24 chars. Reject with `400` + message on failure.
+- **Resolves and stamps** `duration_seconds`/`target_size`/`target_count` from the
+  `(mode, difficulty)` config — client-sent params are ignored.
+- **Computes** `score = hits` and `accuracy = hits / (hits + misses)` (÷0 → 0). Any
+  client-sent `score`/`accuracy` are overridden, so rows are always internally consistent.
+- `user_id` is set to null server-side. `full_run_id` is stored as given (null for solo).
+
+→ `201 { id, created_at }`
 
 **GET /leaderboard**
-Query params (all optional, default to the v1 standard preset):
-`mode=gridshot&duration=60&targetSize=30&targetCount=3&limit=20`
-Returns top rows filtered by the difficulty params, ordered `score DESC, created_at ASC`.
+Query params: `mode=gridshot&difficulty=normal&limit=20` (default to the v1 standard:
+gridshot / normal). Returns the top rounds for that `(mode, difficulty)`, ordered
+`score DESC, created_at ASC`.
 → `200 { entries: [{ display_name, score, accuracy, created_at }, ...] }`
+
+**Full Run endpoints (deferred — built with the 2nd mode):** a create/finalize path for the
+`full_runs` aggregate, plus `GET /full-runs/leaderboard?difficulty=normal&limit=20` returning
+the top Full Runs by `total_score` — the main-menu headline board.
 
 ## Game Spec — Gridshot
 
@@ -153,12 +200,24 @@ Returns top rows filtered by the difficulty params, ordered `score DESC, created
   (default 3) visible at all times.
 - **Spawning:** each target placed at a random position fully inside the playfield (radius
   margin from edges) and not overlapping existing targets.
-- **Hit:** a click whose point lies within a target circle removes that target, counts a
-  hit, and immediately spawns a replacement so the count stays constant.
-- **Miss:** a click landing on no target counts a miss.
-- **Round:** fixed `duration_seconds` (default 60), counting down. Round ends at zero.
+- **Shot:** a single committed input — a **left-button `mousedown` inside the playfield**.
+  Right/middle buttons and clicks on the letterbox margins are ignored (not misses). Every
+  shot is exactly one hit or one miss; `click`/`mouseup` is deliberately not used (it adds
+  latency and lets a press-drag-release dodge a miss).
+- **Hit:** a shot whose point lies within a target circle removes that target, counts a hit,
+  and immediately spawns a replacement so the count stays constant.
+- **Miss:** a shot inside the playfield that lands on no target.
+- **Round lifecycle:** a "click to start" ready state precedes the timer (so it never runs
+  while the player isn't looking). The round runs `duration_seconds`, counting down to zero.
+  On natural completion it **auto-submits once** (guarded against double-submit); an
+  abandoned/reloaded round submits nothing. The score screen renders the local result
+  *immediately*, independent of the network — the `POST` runs in the background with a
+  non-blocking Retry on failure, and the leaderboard panel has its own error/empty state.
 - **Scoring:** `score = hits`. `accuracy = hits / (hits + misses)` (guard divide-by-zero → 0).
-- **Standard preset (the one meaningful v1 board):** `gridshot`, 60s, size 30, count 3.
+- **Difficulty tiers:** `(gridshot, easy|normal|hard)` resolve to fixed param bundles in
+  shared config; `normal` is the baseline (60s, size 30, count 3). The player picks a tier;
+  the resolved params are server-stamped onto the score (see API Contract). Each
+  `(mode, difficulty)` is its own leaderboard.
 
 ## Build Plan (slices)
 
@@ -170,17 +229,29 @@ before the backend exists.
 2. **Game loop** — canvas sized to logical resolution + scaling; rAF loop; render one
    static target and a custom crosshair following the mouse. *Done when:* loop runs at a
    stable framerate and the crosshair tracks the cursor.
-3. **Gridshot** — spawn `target_count` targets, point-in-circle hit detection, respawn on
-   hit, miss tracking, countdown timer, end-of-round score screen. Score computed locally,
-   no backend. *Done when:* a full 60s round is playable and reports hits/misses/accuracy.
-4. **API skeleton** — Express server, `/health`, `pg` pool, `001_init.sql` migration
-   applied to a local Postgres. *Done when:* `/health` responds and the table exists.
-5. **Wire it up** — name entry before play; `POST /scores` on round end; `GET /leaderboard`
-   rendered as a table on the menu/score screen. *Done when:* a played score appears on the
-   board end-to-end locally.
+3. **Gridshot** — a shared `(mode, difficulty)` config + difficulty selector; spawn
+   `target_count` targets, point-in-circle hit detection, respawn on hit, miss tracking,
+   click-to-start, countdown timer, end-of-round score screen. Score computed locally, no
+   backend. *Done when:* a full round at any tier is playable and reports hits/misses/accuracy.
+4. **API skeleton** — Express server, `/health`, `pg` pool, `001_init.sql` migration (the
+   `full_runs` + `scores` schema) applied to a local Postgres. *Done when:* `/health`
+   responds and both tables exist.
+5. **Wire it up** — name entry before play; `POST /scores` (server resolves params, computes
+   derived) on round end; `GET /leaderboard?mode=&difficulty=` rendered as a table on the
+   menu/score screen, decoupled from submission with Retry. *Done when:* a played score
+   appears on the right `(mode, difficulty)` board end-to-end locally.
 6. **Deploy** — `web/` → Vercel, `api/` + Postgres → Railway; configure CORS and env
    (`DATABASE_URL`, `PORT`, allowed origin, `VITE_API_URL`). *Done when:* a friend on
    another machine can play and see the shared board.
+
+**Post-v1 (designed for, sequenced for later):**
+
+7. **2nd mode + registry generalization** — add a second mode (e.g. flick) and harden the
+   mode registry as the "add a mode" seam.
+8. **Full Run flow + Total board** — run-sequencing UI across all modes at one difficulty,
+   `full_runs` create/finalize, and the main-menu `GET /full-runs/leaderboard` Total board.
+9. **Per-name leaderboard cap** — "top-N max K per nickname" via a `ROW_NUMBER() OVER
+   (PARTITION BY display_name …)` window query (a deliberate SQL-learning slice).
 
 ## Known Limitations (accepted for v1)
 

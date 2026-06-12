@@ -86,12 +86,18 @@ npm run typecheck
 > none — it's an actively misleading liability.
 
 - **Phase:** pre–Slice 1. Repo not yet scaffolded.
-- **Done:** SPEC.md and CLAUDE.md authored.
+- **Done:** SPEC.md and CLAUDE.md authored. Grilling session sharpened the design: added
+  `CONTEXT.md` (glossary), reshaped SPEC for modes/difficulties/Full Runs, and recorded
+  `docs/adr/0001-full-run-raw-sum-scoring.md`.
 - **Next:** Slice 1 — scaffold the monorepo (`web/` Vite+TS, `api/` Node+TS+Express),
-  git init, stub README. Done when both dev servers start clean.
+  git init, stub README. Done when both dev servers start clean. (Difficulty config +
+  selector arrive in Slice 3; the `full_runs` schema in Slice 4.)
 - **Open questions / deferred:** Railway vs Render for the always-on host not yet finalized
-  (does not block Slices 1–3, which are backend-free). Accounts, extra modes, and
-  server-side score validation are all explicitly post-v1 (SPEC.md → Out of Scope).
+  (does not block Slices 1–3, which are backend-free). v1 ships gridshot at three difficulty
+  tiers; the **Full Run flow + main-menu Total board**, a **2nd mode**, the **per-name
+  leaderboard cap**, accounts, and server-side anti-forgery are all explicitly post-v1
+  (SPEC.md → Out of Scope / Build Plan post-v1). Cross-mode score normalization is a
+  deferred concern recorded in ADR 0001.
 
 ### Slice log
 
