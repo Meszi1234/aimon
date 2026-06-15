@@ -1,11 +1,35 @@
 :root {
   font-family: system-ui, sans-serif;
-  color-scheme: light dark;
+  color-scheme: dark;
 }
 
 body {
   margin: 0;
   display: grid;
-  place-items: center;
+  place-items: center; /* centers the canvas; the gaps around it are the letterbox margins */
   min-height: 100vh;
+  background: #0f0f17; /* letterbox margin color — shows through around the playfield */
+}
+
+#game {
+  /* The playfield is 10:7. Grow it to the largest 10:7 box that fits the viewport:
+     limited by width on tall windows, by height (via the calc) on wide ones. */
+  aspect-ratio: 1000 / 700;
+  width: min(100vw, calc(100vh * 1000 / 700));
+  height: auto;
+  background: #1a1a2e; /* the playfield surface — distinct from the letterbox */
+  cursor: default; /* OS pointer for now; the crosshair swap seam lives in render.ts */
+}
+
+#hud {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  padding: 6px 10px;
+  font: 13px ui-monospace, monospace;
+  line-height: 1.4;
+  color: #9ad;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 6px;
+  pointer-events: none; /* never intercept clicks meant for the playfield */
 }
