@@ -1,11 +1,38 @@
 :root {
   font-family: system-ui, sans-serif;
-  color-scheme: light dark;
+  color-scheme: dark;
 }
 
 body {
   margin: 0;
   display: grid;
-  place-items: center;
+  place-items: center; /* centers the playfield; the space around it is plain background */
   min-height: 100vh;
+  overflow: hidden; /* page never scrolls; also avoids the scrollbar-gutter centering jitter */
+  background: #0f0f17; /* background around the playfield */
+}
+
+#game {
+  /* Fixed 1400×980 (10:7), shrink-only. The 1400px cap fixes the size on any window large
+     enough — exact integer dims, so no sub-pixel rounding / off-center drift. The viewport
+     terms only kick in to shrink it uniformly on smaller windows; it never grows past 1400.
+     A consistent size keeps difficulty consistent for the leaderboard (see ADR 0002). */
+  aspect-ratio: 1000 / 700;
+  width: min(1400px, 100vw, calc(100vh * 1000 / 700));
+  height: auto;
+  background: #1a1a2e; /* the playfield surface — distinct from the surrounding background */
+  cursor: default; /* OS pointer for now; the crosshair swap seam lives in render.ts */
+}
+
+#hud {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  padding: 6px 10px;
+  font: 13px ui-monospace, monospace;
+  line-height: 1.4;
+  color: #9ad;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 6px;
+  pointer-events: none; /* never intercept clicks meant for the playfield */
 }

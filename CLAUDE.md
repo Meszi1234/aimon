@@ -85,17 +85,22 @@ npm run typecheck
 > Update this section at the end of **every** slice. A stale state section is worse than
 > none — it's an actively misleading liability.
 
-- **Phase:** Slice 1 complete. Monorepo scaffolded; both dev servers verified.
+- **Phase:** Slice 2 complete. Canvas + render loop running.
 - **Done:** SPEC.md and CLAUDE.md authored. Grilling session sharpened the design: added
   `CONTEXT.md` (glossary), reshaped SPEC for modes/difficulties/Full Runs, and recorded
   `docs/adr/0001-full-run-raw-sum-scoring.md`. **Slice 1:** `web/` (Vite+TS vanilla, demo
   trimmed) and `api/` (hand-built Node+TS+Express, ESM, `tsx` dev runner) as independent
   packages; `.nvmrc` (Node 24); `.env.example` in each package. Both `npm run dev` start
-  clean, both `npm run typecheck` pass.
-- **Next:** Slice 2 — canvas sized to logical 1000×700 + aspect-ratio scaling, rAF loop,
-  render one static target and a custom crosshair tracking the mouse. Done when the loop
-  runs at a stable framerate and the crosshair follows the cursor. (Difficulty config +
-  selector arrive in Slice 3; the `full_runs` schema in Slice 4.)
+  clean, both `npm run typecheck` pass. **Slice 2:** `web/src/game/` (playfield + DPR-aware
+  canvas + `screenToLogical`, rAF loop with `update`/`render` split, render one static
+  target); OS pointer as the v1 reticle with a crosshair swap seam; dev HUD (FPS + cursor
+  coords, backtick-toggle). Playfield renders at a **fixed 1400×980 display size, shrink-only**
+  (not scale-to-fit) for leaderboard comparability — `docs/adr/0002`. Glossary gained Logical
+  units / Display size / Shot point / Crosshair.
+- **Next:** Slice 3 — Gridshot: shared `(mode, difficulty)` config + difficulty selector;
+  spawn `target_count` targets, point-in-circle hit detection, respawn on hit, miss
+  tracking, click-to-start, countdown timer, end-of-round score screen (scored locally, no
+  backend). (The `full_runs` schema arrives in Slice 4.)
 - **Open questions / deferred:** Railway vs Render for the always-on host not yet finalized
   (does not block Slices 1–3, which are backend-free). v1 ships gridshot at three difficulty
   tiers; the **Full Run flow + main-menu Total board**, a **2nd mode**, the **per-name
@@ -109,3 +114,7 @@ npm run typecheck
 
 - **Slice 1 — Scaffold.** Monorepo: `web/` (Vite+TS) + `api/` (Node+TS+Express) as
   independent packages, `.nvmrc`, per-package `.env.example`. Both dev servers start clean.
+  (PR #1)
+- **Slice 2 — Canvas + game loop.** DPR-aware canvas at a fixed 1400×980 display size
+  (shrink-only; ADR 0002), rAF loop (`update`/`render` split, no accumulator), one static
+  target, OS-pointer reticle + swap seam, dev HUD.

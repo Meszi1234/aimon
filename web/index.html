@@ -7,7 +7,11 @@
     <title>Aim Trainer</title>
   </head>
   <body>
-    <div id="app"></div>
+    <canvas id="game"></canvas>
+    <div id="hud" hidden>
+      <div>fps: <span id="hud-fps">—</span></div>
+      <div>cursor: <span id="hud-cursor">—</span></div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

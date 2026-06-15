@@ -21,11 +21,20 @@ When code or conversation uses one of these words, it means exactly this.
   rounds are ordinary Rounds tagged with that id.
 - **Shot** — a committed input: a left-button mousedown inside the playfield. Exactly one
   Hit or one Miss.
+- **Shot point** — the exact Logical-unit coordinate a Shot resolves to: the cursor's
+  *hotspot* (for the OS pointer, the tip). Hit vs Miss is decided against this point.
+- **Crosshair** — the player's aiming reticle. In v1 it is the operating-system mouse
+  pointer; custom reticle styles are a later design-phase concern. Not an identity, not scored.
 - **Hit** / **Miss** — a Shot inside / outside a target. A Hit removes the target and spawns
   a replacement.
 - **Score** — the ranked integer for a Round, equal to Hits.
 - **Accuracy** — Hits ÷ (Hits + Misses), in [0,1]; 0 when no shots. Derived.
 - **Total score** — a Full Run's headline number: the raw sum of its Rounds' Scores.
+- **Logical units** — the fixed 1000×700 coordinate space all game math uses, independent of
+  on-screen size or display pixel density (DPR). Screen input is mapped into this space once.
+- **Display size** — the fixed on-screen size the Playfield renders at (1400×980 CSS px),
+  centered and shrink-only. Distinct from **Logical units**: the game thinks in 1000×700 and
+  is drawn at the Display size. Kept consistent so difficulty stays comparable (ADR 0002).
 - **Playfield** — the 1000×700 logical play surface; all game math in logical units. Distinct
   from the **letterbox margins** of aspect-ratio scaling.
 - **Entry** — one row on a leaderboard. On a **per-mode leaderboard** it is a Round; on the

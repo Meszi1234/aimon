@@ -194,8 +194,12 @@ the top Full Runs by `total_score` — the main-menu headline board.
 
 ## Game Spec — Gridshot
 
-- **Playfield:** logical resolution 1000 × 700, scaled to fit the viewport preserving
-  aspect ratio. All game math is in logical units.
+- **Playfield:** logical resolution 1000 × 700 (all game math is in logical units), rendered
+  at a **fixed display size of 1400 × 980 CSS px**, centered, **shrink-only** — it shrinks
+  uniformly on windows too small to fit it but never grows to fill larger monitors. A
+  consistent display size keeps difficulty consistent across windows, which the shared
+  leaderboard depends on. See `docs/adr/0002`. (Rejected scale-to-fit: it made window size a
+  hidden difficulty dial.)
 - **Targets:** circles of radius `target_size` (default 30). Exactly `target_count`
   (default 3) visible at all times.
 - **Spawning:** each target placed at a random position fully inside the playfield (radius
@@ -227,8 +231,11 @@ before the backend exists.
 1. **Scaffold** — monorepo with `web/` (Vite+TS) and `api/` (Node+TS+Express); git init;
    stub CLAUDE.md/README. *Done when:* both dev servers start clean.
 2. **Game loop** — canvas sized to logical resolution + scaling; rAF loop; render one
-   static target and a custom crosshair following the mouse. *Done when:* loop runs at a
-   stable framerate and the crosshair tracks the cursor.
+   static target. The aiming reticle in v1 is the **OS mouse pointer** (`cursor: default`);
+   custom drawn crosshair styles are deferred to a later design phase. A swap seam is left
+   in `render.ts`, and the **Shot point = cursor hotspot (pointer tip)** invariant lives in
+   `screenToLogical()`. *Done when:* loop runs at a stable framerate and the pointer maps
+   accurately into logical playfield coordinates.
 3. **Gridshot** — a shared `(mode, difficulty)` config + difficulty selector; spawn
    `target_count` targets, point-in-circle hit detection, respawn on hit, miss tracking,
    click-to-start, countdown timer, end-of-round score screen. Score computed locally, no
@@ -259,6 +266,10 @@ before the backend exists.
   anything. Acceptable for trusted friends. Server still does basic type/range validation to
   keep garbage out. Server-side validation or signed sessions is a deferred, scale-time problem.
 - **Nicknames are unverified** and can collide or be impersonated. Resolved when accounts land.
+- **Physical aim difficulty isn't guaranteed across players.** The fixed playfield size keeps
+  difficulty consistent in CSS pixels, but a given size is physically larger or smaller on
+  different monitors, browser zoom rescales it, and mouse DPI/sensitivity is unreadable from
+  the browser. Cross-player fairness is therefore approximate, not exact (see `docs/adr/0002`).
 
 ## Environment Variables
 
