@@ -85,12 +85,16 @@ npm run typecheck
 > Update this section at the end of **every** slice. A stale state section is worse than
 > none — it's an actively misleading liability.
 
-- **Phase:** pre–Slice 1. Repo not yet scaffolded.
+- **Phase:** Slice 1 complete. Monorepo scaffolded; both dev servers verified.
 - **Done:** SPEC.md and CLAUDE.md authored. Grilling session sharpened the design: added
   `CONTEXT.md` (glossary), reshaped SPEC for modes/difficulties/Full Runs, and recorded
-  `docs/adr/0001-full-run-raw-sum-scoring.md`.
-- **Next:** Slice 1 — scaffold the monorepo (`web/` Vite+TS, `api/` Node+TS+Express),
-  git init, stub README. Done when both dev servers start clean. (Difficulty config +
+  `docs/adr/0001-full-run-raw-sum-scoring.md`. **Slice 1:** `web/` (Vite+TS vanilla, demo
+  trimmed) and `api/` (hand-built Node+TS+Express, ESM, `tsx` dev runner) as independent
+  packages; `.nvmrc` (Node 24); `.env.example` in each package. Both `npm run dev` start
+  clean, both `npm run typecheck` pass.
+- **Next:** Slice 2 — canvas sized to logical 1000×700 + aspect-ratio scaling, rAF loop,
+  render one static target and a custom crosshair tracking the mouse. Done when the loop
+  runs at a stable framerate and the crosshair follows the cursor. (Difficulty config +
   selector arrive in Slice 3; the `full_runs` schema in Slice 4.)
 - **Open questions / deferred:** Railway vs Render for the always-on host not yet finalized
   (does not block Slices 1–3, which are backend-free). v1 ships gridshot at three difficulty
@@ -103,4 +107,5 @@ npm run typecheck
 
 (Append a one-line entry per completed slice: what shipped + the commit/PR.)
 
-- _none yet_
+- **Slice 1 — Scaffold.** Monorepo: `web/` (Vite+TS) + `api/` (Node+TS+Express) as
+  independent packages, `.nvmrc`, per-package `.env.example`. Both dev servers start clean.
