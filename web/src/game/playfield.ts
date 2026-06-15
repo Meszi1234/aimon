@@ -9,6 +9,14 @@ export const LOGICAL_WIDTH = 1000
 export const LOGICAL_HEIGHT = 700
 export const TARGET_RADIUS = 30
 
+// Fixed on-screen size of the playfield (CSS pixels), separate from the logical space. The
+// playfield renders at this size on any adequately sized window and only shrinks (uniformly,
+// via CSS) on smaller ones — it never grows to fill big monitors. A consistent display size
+// keeps aim difficulty consistent, which is what makes leaderboard scores comparable. (10:7,
+// matching the logical aspect ratio; logical→display scale is a fixed 1.4×. See ADR 0002.)
+export const DISPLAY_WIDTH = 1400
+export const DISPLAY_HEIGHT = 980
+
 /**
  * Size the canvas's backing store for the current devicePixelRatio and scale the drawing
  * context so all our drawing code can speak logical units.
@@ -18,23 +26,26 @@ export const TARGET_RADIUS = 30
  *   - the *display size* (set by CSS) — how big the browser stretches the element on screen
  *
  * On a HiDPI screen (devicePixelRatio = 2), one CSS pixel is painted by a 2×2 block of
- * physical pixels. If the backing store were only 1000×700, the browser would stretch that
- * across ~2000×1400 physical pixels and the target's edge would look soft. So we make the
- * backing store `dpr` times larger, then scale the drawing context back down by `dpr`. Now
- * a circle drawn at logical (500, 350) lands on the correct physical pixels AND stays crisp,
- * while our code still works in clean 1000×700 units.
+ * physical pixels. We size the backing store to the *display* size × dpr (DISPLAY_* × dpr),
+ * then scale the context so a single transform maps logical 1000×700 units onto it:
+ * scale = (DISPLAY_WIDTH / LOGICAL_WIDTH) × dpr. Drawing a circle at logical (500, 350) thus
+ * lands on the correct physical pixels AND stays crisp, while our code stays in 1000×700.
  *
- * Safe to call again when the DPR changes — setTransform replaces any prior transform rather
- * than compounding onto it.
+ * Why key the backing store off the *display* size rather than the logical size: the element
+ * is shown at DISPLAY_WIDTH (1400), so a logical-sized store would be up-scaled by CSS and
+ * look soft. When a small window shrinks the element below 1400, CSS *down*-scales this
+ * already-dense store, which stays crisp — so resize needs no rebuild; only a DPR change does
+ * (setTransform replaces any prior transform rather than compounding, so re-calling is safe).
  */
 export function setupCanvas(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('2D canvas context unavailable')
 
   const dpr = window.devicePixelRatio || 1
-  canvas.width = LOGICAL_WIDTH * dpr
-  canvas.height = LOGICAL_HEIGHT * dpr
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  canvas.width = DISPLAY_WIDTH * dpr
+  canvas.height = DISPLAY_HEIGHT * dpr
+  const scale = (DISPLAY_WIDTH / LOGICAL_WIDTH) * dpr
+  ctx.setTransform(scale, 0, 0, scale, 0, 0)
 
   return ctx
 }

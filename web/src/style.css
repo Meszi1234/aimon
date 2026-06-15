@@ -6,18 +6,21 @@
 body {
   margin: 0;
   display: grid;
-  place-items: center; /* centers the canvas; the gaps around it are the letterbox margins */
+  place-items: center; /* centers the playfield; the space around it is plain background */
   min-height: 100vh;
-  background: #0f0f17; /* letterbox margin color — shows through around the playfield */
+  overflow: hidden; /* page never scrolls; also avoids the scrollbar-gutter centering jitter */
+  background: #0f0f17; /* background around the playfield */
 }
 
 #game {
-  /* The playfield is 10:7. Grow it to the largest 10:7 box that fits the viewport:
-     limited by width on tall windows, by height (via the calc) on wide ones. */
+  /* Fixed 1400×980 (10:7), shrink-only. The 1400px cap fixes the size on any window large
+     enough — exact integer dims, so no sub-pixel rounding / off-center drift. The viewport
+     terms only kick in to shrink it uniformly on smaller windows; it never grows past 1400.
+     A consistent size keeps difficulty consistent for the leaderboard (see ADR 0002). */
   aspect-ratio: 1000 / 700;
-  width: min(100vw, calc(100vh * 1000 / 700));
+  width: min(1400px, 100vw, calc(100vh * 1000 / 700));
   height: auto;
-  background: #1a1a2e; /* the playfield surface — distinct from the letterbox */
+  background: #1a1a2e; /* the playfield surface — distinct from the surrounding background */
   cursor: default; /* OS pointer for now; the crosshair swap seam lives in render.ts */
 }
 
