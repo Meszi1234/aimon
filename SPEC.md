@@ -227,8 +227,11 @@ before the backend exists.
 1. **Scaffold** — monorepo with `web/` (Vite+TS) and `api/` (Node+TS+Express); git init;
    stub CLAUDE.md/README. *Done when:* both dev servers start clean.
 2. **Game loop** — canvas sized to logical resolution + scaling; rAF loop; render one
-   static target and a custom crosshair following the mouse. *Done when:* loop runs at a
-   stable framerate and the crosshair tracks the cursor.
+   static target. The aiming reticle in v1 is the **OS mouse pointer** (`cursor: default`);
+   custom drawn crosshair styles are deferred to a later design phase. A swap seam is left
+   in `render.ts`, and the **Shot point = cursor hotspot (pointer tip)** invariant lives in
+   `screenToLogical()`. *Done when:* loop runs at a stable framerate and the pointer maps
+   accurately into logical playfield coordinates.
 3. **Gridshot** — a shared `(mode, difficulty)` config + difficulty selector; spawn
    `target_count` targets, point-in-circle hit detection, respawn on hit, miss tracking,
    click-to-start, countdown timer, end-of-round score screen. Score computed locally, no
