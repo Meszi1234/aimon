@@ -32,6 +32,9 @@ When code or conversation uses one of these words, it means exactly this.
 - **Total score** — a Full Run's headline number: the raw sum of its Rounds' Scores.
 - **Logical units** — the fixed 1000×700 coordinate space all game math uses, independent of
   on-screen size or display pixel density (DPR). Screen input is mapped into this space once.
+- **Display size** — the fixed on-screen size the Playfield renders at (1400×980 CSS px),
+  centered and shrink-only. Distinct from **Logical units**: the game thinks in 1000×700 and
+  is drawn at the Display size. Kept consistent so difficulty stays comparable (ADR 0002).
 - **Playfield** — the 1000×700 logical play surface; all game math in logical units. Distinct
   from the **letterbox margins** of aspect-ratio scaling.
 - **Entry** — one row on a leaderboard. On a **per-mode leaderboard** it is a Round; on the

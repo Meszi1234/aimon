@@ -94,7 +94,9 @@ npm run typecheck
   clean, both `npm run typecheck` pass. **Slice 2:** `web/src/game/` (playfield + DPR-aware
   canvas + `screenToLogical`, rAF loop with `update`/`render` split, render one static
   target); OS pointer as the v1 reticle with a crosshair swap seam; dev HUD (FPS + cursor
-  coords, backtick-toggle). Glossary gained Logical units / Shot point / Crosshair.
+  coords, backtick-toggle). Playfield renders at a **fixed 1400×980 display size, shrink-only**
+  (not scale-to-fit) for leaderboard comparability — `docs/adr/0002`. Glossary gained Logical
+  units / Display size / Shot point / Crosshair.
 - **Next:** Slice 3 — Gridshot: shared `(mode, difficulty)` config + difficulty selector;
   spawn `target_count` targets, point-in-circle hit detection, respawn on hit, miss
   tracking, click-to-start, countdown timer, end-of-round score screen (scored locally, no
@@ -113,5 +115,6 @@ npm run typecheck
 - **Slice 1 — Scaffold.** Monorepo: `web/` (Vite+TS) + `api/` (Node+TS+Express) as
   independent packages, `.nvmrc`, per-package `.env.example`. Both dev servers start clean.
   (PR #1)
-- **Slice 2 — Canvas + game loop.** DPR-aware letterboxed canvas, rAF loop (`update`/`render`
-  split, no accumulator), one static target, OS-pointer reticle + swap seam, dev HUD.
+- **Slice 2 — Canvas + game loop.** DPR-aware canvas at a fixed 1400×980 display size
+  (shrink-only; ADR 0002), rAF loop (`update`/`render` split, no accumulator), one static
+  target, OS-pointer reticle + swap seam, dev HUD.
