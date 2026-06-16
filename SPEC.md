@@ -141,6 +141,7 @@ CREATE TABLE scores (
   duration_seconds INTEGER     NOT NULL,            -- resolved from (mode, difficulty); stored for history
   target_size      INTEGER     NOT NULL,            -- resolved; target radius in logical px
   target_count     INTEGER     NOT NULL,            -- resolved; simultaneous targets
+  target_lifetime_ms INTEGER   NOT NULL,            -- resolved; ms a target lives before despawn (ADR 0003)
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -174,8 +175,8 @@ Body:
 The client sends only the inputs. The server is the authority on everything derived:
 - Validates `(mode, difficulty)` is in the allowed set; `hits`/`misses` non-negative
   integers; `display_name` trimmed, 1–24 chars. Reject with `400` + message on failure.
-- **Resolves and stamps** `duration_seconds`/`target_size`/`target_count` from the
-  `(mode, difficulty)` config — client-sent params are ignored.
+- **Resolves and stamps** `duration_seconds`/`target_size`/`target_count`/`target_lifetime_ms`
+  from the `(mode, difficulty)` config — client-sent params are ignored.
 - **Computes** `score = hits` and `accuracy = hits / (hits + misses)` (÷0 → 0). Any
   client-sent `score`/`accuracy` are overridden, so rows are always internally consistent.
 - `user_id` is set to null server-side. `full_run_id` is stored as given (null for solo).
@@ -211,6 +212,12 @@ the top Full Runs by `total_score` — the main-menu headline board.
 - **Hit:** a shot whose point lies within a target circle removes that target, counts a hit,
   and immediately spawns a replacement so the count stays constant.
 - **Miss:** a shot inside the playfield that lands on no target.
+- **Target lifetime:** each target also has a finite lifetime (resolved per tier). If it is not
+  hit before its lifetime elapses it **despawns on its own** and a replacement spawns, so the
+  count stays constant. An expired target is a lost scoring opportunity, **not a miss** —
+  Hit/Miss stay tied to actual shots (see `docs/adr/0003`). As a fairness cue the target
+  **fades out** over roughly the last third of its life; the hit radius is unchanged, so a faded
+  target is still fully clickable.
 - **Round lifecycle:** a "click to start" ready state precedes the timer (so it never runs
   while the player isn't looking). The round runs `duration_seconds`, counting down to zero.
   On natural completion it **auto-submits once** (guarded against double-submit); an
@@ -218,10 +225,19 @@ the top Full Runs by `total_score` — the main-menu headline board.
   *immediately*, independent of the network — the `POST` runs in the background with a
   non-blocking Retry on failure, and the leaderboard panel has its own error/empty state.
 - **Scoring:** `score = hits`. `accuracy = hits / (hits + misses)` (guard divide-by-zero → 0).
-- **Difficulty tiers:** `(gridshot, easy|normal|hard)` resolve to fixed param bundles in
-  shared config; `normal` is the baseline (60s, size 30, count 3). The player picks a tier;
-  the resolved params are server-stamped onto the score (see API Contract). Each
-  `(mode, difficulty)` is its own leaderboard.
+- **Difficulty tiers:** `(gridshot, easy|normal|hard)` resolve to fixed param bundles in shared
+  config. Two knobs vary — target **size** and **lifetime** — while duration (60s) and count (3)
+  stay constant:
+
+  | tier   | target_size | target_lifetime | duration | count |
+  |--------|-------------|-----------------|----------|-------|
+  | easy   | 42          | 2000 ms         | 60 s     | 3     |
+  | normal | 30          | 1200 ms         | 60 s     | 3     |
+  | hard   | 22          | 800 ms          | 60 s     | 3     |
+
+  `normal` is the baseline. Values are tunable; the resolved params are server-stamped onto each
+  score (arch decision #11), so re-tuning a tier never rewrites old scores. The player picks a
+  tier; each `(mode, difficulty)` is its own leaderboard.
 
 ## Build Plan (slices)
 
@@ -237,9 +253,10 @@ before the backend exists.
    `screenToLogical()`. *Done when:* loop runs at a stable framerate and the pointer maps
    accurately into logical playfield coordinates.
 3. **Gridshot** — a shared `(mode, difficulty)` config + difficulty selector; spawn
-   `target_count` targets, point-in-circle hit detection, respawn on hit, miss tracking,
-   click-to-start, countdown timer, end-of-round score screen. Score computed locally, no
-   backend. *Done when:* a full round at any tier is playable and reports hits/misses/accuracy.
+   `target_count` targets, point-in-circle hit detection, respawn on hit or lifetime expiry,
+   miss tracking, click-to-start, countdown timer, end-of-round score screen. Score computed
+   locally, no backend. *Done when:* a full round at any tier is playable and reports
+   hits/misses/accuracy.
 4. **API skeleton** — Express server, `/health`, `pg` pool, `001_init.sql` migration (the
    `full_runs` + `scores` schema) applied to a local Postgres. *Done when:* `/health`
    responds and both tables exist.
