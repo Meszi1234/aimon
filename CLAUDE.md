@@ -85,7 +85,7 @@ npm run typecheck
 > Update this section at the end of **every** slice. A stale state section is worse than
 > none — it's an actively misleading liability.
 
-- **Phase:** Slice 2 complete. Canvas + render loop running.
+- **Phase:** Slice 3 complete. Gridshot is fully playable, scored locally (no backend yet).
 - **Done:** SPEC.md and CLAUDE.md authored. Grilling session sharpened the design: added
   `CONTEXT.md` (glossary), reshaped SPEC for modes/difficulties/Full Runs, and recorded
   `docs/adr/0001-full-run-raw-sum-scoring.md`. **Slice 1:** `web/` (Vite+TS vanilla, demo
@@ -96,11 +96,20 @@ npm run typecheck
   target); OS pointer as the v1 reticle with a crosshair swap seam; dev HUD (FPS + cursor
   coords, backtick-toggle). Playfield renders at a **fixed 1400×980 display size, shrink-only**
   (not scale-to-fit) for leaderboard comparability — `docs/adr/0002`. Glossary gained Logical
-  units / Display size / Shot point / Crosshair.
-- **Next:** Slice 3 — Gridshot: shared `(mode, difficulty)` config + difficulty selector;
-  spawn `target_count` targets, point-in-circle hit detection, respawn on hit, miss
-  tracking, click-to-start, countdown timer, end-of-round score screen (scored locally, no
-  backend). (The `full_runs` schema arrives in Slice 4.)
+  units / Display size / Shot point / Crosshair. **Slice 3:** `web/src/game/config.ts`
+  (`(mode,difficulty)`→`TierParams` table + `resolvePreset`), `targets.ts` (rejection-sampling
+  spawn: in-bounds, non-overlap, not-under-cursor; point-in-circle `hitTest`), `round.ts` (the
+  `Select→Ready→Running→Ended` state machine; clock threaded in, cursor pushed in), `ui/screens.ts`
+  (HTML-overlay controller); `render.ts` draws live targets with a last-third fade (hit radius
+  constant); `main.ts` orchestrates (one clock read/frame, idempotent phase `sync()`,
+  left-mousedown shots, consumed start-click). **New mechanic:** per-tier **target lifetime** —
+  targets despawn on expiry (respawn to keep count), expiry is **not** a miss (`docs/adr/0003`).
+  Tiers vary size+lifetime (easy 42/2000ms · normal 30/1200ms · hard 22/800ms), duration 60s /
+  count 3 constant. Glossary gained Target lifetime. (Fixed a CSS gotcha: `hidden` is low-priority
+  UA `display:none`, overridden by `.overlay{display:grid}` → added `.overlay[hidden]{display:none}`.)
+- **Next:** Slice 4 — API skeleton: Express server, `/health`, `pg` pool, `001_init.sql`
+  migration (the `full_runs` + `scores` schema, incl. the new `target_lifetime_ms` column)
+  applied to a local Postgres. *Done when:* `/health` responds and both tables exist.
 - **Open questions / deferred:** Railway vs Render for the always-on host not yet finalized
   (does not block Slices 1–3, which are backend-free). v1 ships gridshot at three difficulty
   tiers; the **Full Run flow + main-menu Total board**, a **2nd mode**, the **per-name
@@ -118,3 +127,7 @@ npm run typecheck
 - **Slice 2 — Canvas + game loop.** DPR-aware canvas at a fixed 1400×980 display size
   (shrink-only; ADR 0002), rAF loop (`update`/`render` split, no accumulator), one static
   target, OS-pointer reticle + swap seam, dev HUD.
+- **Slice 3 — Gridshot.** `(mode,difficulty)` config + `resolvePreset`; rejection-sampling
+  spawn + point-in-circle hit detection; `Select→Ready→Running→Ended` state machine; HTML-overlay
+  UI (selector, ready prompt, live timer, score screen); targets fade + despawn on a per-tier
+  **lifetime** (expiry ≠ miss, ADR 0003). Tiers vary size+lifetime; scored locally. (PR #3)

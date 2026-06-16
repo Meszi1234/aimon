@@ -27,6 +27,10 @@ When code or conversation uses one of these words, it means exactly this.
   pointer; custom reticle styles are a later design-phase concern. Not an identity, not scored.
 - **Hit** / **Miss** — a Shot inside / outside a target. A Hit removes the target and spawns
   a replacement.
+- **Target lifetime** — how long a target stays on screen before it **despawns on its own** if
+  not hit; a per-tier difficulty knob. Expiry spawns a replacement (count stays constant) and is
+  a lost opportunity, **not a Miss** (Hit/Miss are shot-only; see `docs/adr/0003`). Shorter
+  lifetime = more time pressure.
 - **Score** — the ranked integer for a Round, equal to Hits.
 - **Accuracy** — Hits ÷ (Hits + Misses), in [0,1]; 0 when no shots. Derived.
 - **Total score** — a Full Run's headline number: the raw sum of its Rounds' Scores.

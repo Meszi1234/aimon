@@ -8,6 +8,41 @@
   </head>
   <body>
     <canvas id="game"></canvas>
+
+    <!-- Live countdown, shown only while a round is running. pointer-events: none (CSS) so it
+         never eats a shot aimed at the playfield behind it. -->
+    <div id="timer" hidden>1:00</div>
+
+    <!-- Phase overlays. The state machine (main.ts) shows exactly one of these at a time.
+         Select/Score are interactive (their buttons); Ready is pass-through so the click that
+         starts the round lands on the canvas. -->
+    <div id="screen-select" class="overlay">
+      <h1>aimon</h1>
+      <p class="subtitle">gridshot — pick a difficulty</p>
+      <div class="buttons">
+        <button type="button" data-difficulty="easy">Easy</button>
+        <button type="button" data-difficulty="normal">Normal</button>
+        <button type="button" data-difficulty="hard">Hard</button>
+      </div>
+    </div>
+
+    <div id="screen-ready" class="overlay overlay--passthrough" hidden>
+      <p class="prompt">click to start</p>
+    </div>
+
+    <div id="screen-score" class="overlay" hidden>
+      <h2>Round over</h2>
+      <dl class="stats">
+        <div><dt>Hits</dt><dd id="score-hits">0</dd></div>
+        <div><dt>Misses</dt><dd id="score-misses">0</dd></div>
+        <div><dt>Accuracy</dt><dd id="score-accuracy">0%</dd></div>
+      </dl>
+      <div class="buttons">
+        <button type="button" id="btn-play-again">Play again</button>
+        <button type="button" id="btn-change-difficulty">Change difficulty</button>
+      </div>
+    </div>
+
     <div id="hud" hidden>
       <div>fps: <span id="hud-fps">—</span></div>
       <div>cursor: <span id="hud-cursor">—</span></div>
