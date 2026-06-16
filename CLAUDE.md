@@ -36,8 +36,13 @@ cd web && npm run dev
 # backend dev server
 cd api && npm run dev
 
-# apply the DB migration to a local Postgres
-cd api && npm run migrate        # or: psql "$DATABASE_URL" -f migrations/001_init.sql
+# local Postgres (Docker) — start / stop / reset
+docker compose up -d             # start the dev DB in the background
+docker compose down              # stop it (volume/data kept)
+docker compose down -v           # stop AND wipe the volume (dev-DB reset button)
+
+# apply the DB migration to the local Postgres (after `up`)
+cd api && npm run migrate        # tsx --env-file=.env src/migrate.ts
 
 # typecheck (both packages should expose this)
 npm run typecheck
@@ -85,7 +90,8 @@ npm run typecheck
 > Update this section at the end of **every** slice. A stale state section is worse than
 > none — it's an actively misleading liability.
 
-- **Phase:** Slice 3 complete. Gridshot is fully playable, scored locally (no backend yet).
+- **Phase:** Slice 4 complete. The API skeleton stands up locally: `/health` responds and
+  the `full_runs` + `scores` schema exists in a Dockerized Postgres. No web↔API wiring yet.
 - **Done:** SPEC.md and CLAUDE.md authored. Grilling session sharpened the design: added
   `CONTEXT.md` (glossary), reshaped SPEC for modes/difficulties/Full Runs, and recorded
   `docs/adr/0001-full-run-raw-sum-scoring.md`. **Slice 1:** `web/` (Vite+TS vanilla, demo
@@ -107,9 +113,22 @@ npm run typecheck
   Tiers vary size+lifetime (easy 42/2000ms · normal 30/1200ms · hard 22/800ms), duration 60s /
   count 3 constant. Glossary gained Target lifetime. (Fixed a CSS gotcha: `hidden` is low-priority
   UA `display:none`, overridden by `.overlay{display:grid}` → added `.overlay[hidden]{display:none}`.)
-- **Next:** Slice 4 — API skeleton: Express server, `/health`, `pg` pool, `001_init.sql`
-  migration (the `full_runs` + `scores` schema, incl. the new `target_lifetime_ms` column)
-  applied to a local Postgres. *Done when:* `/health` responds and both tables exist.
+  **Slice 4:** `docker-compose.yml` (root) runs a pinned `postgres:16` for local dev (reproducible
+  across the two synced machines); `api/migrations/001_init.sql` is the `full_runs` + `scores`
+  schema verbatim from SPEC (incl. `target_lifetime_ms`, the leaderboard/board indexes, the
+  `full_run_id` FK); `api/src/db.ts` exports a shared `pg` `Pool` + a `(text, params)`-only `query`
+  helper (parameterized-SQL guardrail), SSL gated on an explicit `PGSSL` env var (off for local
+  Docker, `require` on Railway); `api/src/migrate.ts` applies each `.sql` in its own transaction,
+  **loud on re-run** (no `IF NOT EXISTS`, no `schema_migrations` tracking table yet — that arrives
+  with migration #2; reset the dev DB via `docker compose down -v`); `routes/health.ts` is a pure
+  **liveness** `/health` (no DB ping, so a DB blip can't make the host restart a healthy web
+  process). `express.json()`/CORS deliberately deferred to Slice 5/6 with seams marked in
+  `server.ts`. (Local dev needs Docker Engine in WSL — the daemon isn't a systemd service, so
+  `sudo service docker start` after each WSL restart.)
+- **Next:** Slice 5 — Wire it up: name entry before play; `POST /scores` (server resolves params
+  from `(mode, difficulty)` config + computes `score`/`accuracy`) on round end; `GET /leaderboard`
+  rendered as a table, decoupled from submission with Retry. Needs `express.json()` + CORS turned
+  on. *Done when:* a played score appears on the right `(mode, difficulty)` board end-to-end locally.
 - **Open questions / deferred:** Railway vs Render for the always-on host not yet finalized
   (does not block Slices 1–3, which are backend-free). v1 ships gridshot at three difficulty
   tiers; the **Full Run flow + main-menu Total board**, a **2nd mode**, the **per-name
@@ -131,3 +150,7 @@ npm run typecheck
   spawn + point-in-circle hit detection; `Select→Ready→Running→Ended` state machine; HTML-overlay
   UI (selector, ready prompt, live timer, score screen); targets fade + despawn on a per-tier
   **lifetime** (expiry ≠ miss, ADR 0003). Tiers vary size+lifetime; scored locally. (PR #3)
+- **Slice 4 — API skeleton.** Dockerized `postgres:16` for local dev; `001_init.sql`
+  (`full_runs` + `scores`) applied via a transactional `tsx`/`pg` `migrate.ts`; shared `pg` `Pool`
+  + `(text, params)` `query` helper with `PGSSL`-gated SSL; pure-liveness `/health`. Verified:
+  migration applied, both tables exist (`\dt`), `/health` → `{status:ok}`.
