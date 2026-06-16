@@ -7,7 +7,6 @@
 
 export const LOGICAL_WIDTH = 1000
 export const LOGICAL_HEIGHT = 700
-export const TARGET_RADIUS = 30
 
 // Fixed on-screen size of the playfield (CSS pixels), separate from the logical space. The
 // playfield renders at this size on any adequately sized window and only shrinks (uniformly,
