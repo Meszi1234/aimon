@@ -1,0 +1,23 @@
+# Local development Postgres for the aim trainer API.
+# Version is pinned so both synced machines (work PC, home PC) run an identical DB.
+#
+#   docker compose up -d        # start the DB in the background
+#   docker compose down         # stop it (data is kept in the named volume)
+#   docker compose down -v      # stop AND wipe the volume — the dev-DB reset button
+#
+# After `up`, apply the schema with:  cd api && npm run migrate
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aimtrainer
+      POSTGRES_PASSWORD: aimtrainer
+      POSTGRES_DB: aimtrainer
+    ports:
+      - '5432:5432'
+    volumes:
+      - aimtrainer_pgdata:/var/lib/postgresql/data
+
+volumes:
+  aimtrainer_pgdata:
