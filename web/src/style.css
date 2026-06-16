@@ -36,3 +36,112 @@ body {
   border-radius: 6px;
   pointer-events: none; /* never intercept clicks meant for the playfield */
 }
+
+/* Live countdown, top-center. pointer-events: none so it never swallows a shot. */
+#timer {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font: 600 28px ui-monospace, monospace;
+  color: #e6e6f0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Phase overlays: full-viewport, content centered over the (centered) playfield. */
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 20;
+  text-align: center;
+  color: #e6e6f0;
+}
+
+/* The `hidden` attribute is only `display: none` from the UA stylesheet (low priority); our
+   `.overlay { display: grid }` would override it and leave every overlay visible. This restores
+   `hidden` for overlays with higher specificity, so showPhase() actually hides them. */
+.overlay[hidden] {
+  display: none;
+}
+
+/* Interactive overlays dim the playfield behind them. */
+#screen-select,
+#screen-score {
+  background: rgba(15, 15, 23, 0.82);
+}
+
+/* The ready prompt sits over the LIVE playfield and must not eat the start click. */
+.overlay--passthrough {
+  pointer-events: none;
+  background: none;
+}
+
+.overlay h1 {
+  margin: 0 0 4px;
+  font-size: 42px;
+  letter-spacing: 0.08em;
+}
+
+.overlay h2 {
+  margin: 0 0 16px;
+  font-size: 28px;
+}
+
+.subtitle {
+  margin: 0 0 24px;
+  color: #9ad;
+}
+
+.prompt {
+  font-size: 24px;
+  color: #9ad;
+}
+
+.buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.overlay button {
+  font: 16px system-ui, sans-serif;
+  padding: 10px 20px;
+  color: #e6e6f0;
+  background: #16213e;
+  border: 1px solid #2a3a66;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.overlay button:hover {
+  background: #1f2d52;
+}
+
+/* End-of-round stats: Hits / Misses / Accuracy in a row. */
+.stats {
+  display: flex;
+  gap: 28px;
+  justify-content: center;
+  margin: 0 0 24px;
+}
+
+.stats div {
+  display: flex;
+  flex-direction: column;
+}
+
+.stats dt {
+  color: #9ad;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.stats dd {
+  margin: 4px 0 0;
+  font: 600 28px ui-monospace, monospace;
+}
